@@ -23,7 +23,16 @@ The resultant image was sliced along the temporal (season) domain with a window 
 Raw sample data were presented in the "Data/GC" folder with the "Train", "Test", "Val" subfolders containing the sliced training, testing and validation data. Each data record was saved in .npz format, each contains a "image" file (Ground cover and mask) and a "Auxiliary file". These raw data will then be procssed by the "data_preparation.py" in "Data" folder.
 
 ## Model structure
+Figure below shows the structure of the model in this study. For each input sequence with the shape of 128 × 128 × 6 × 16, along the channel dimension, it was separated to ground cover feature, mask feature and auxiliary feature. The output sequence only contains the ground cover layer. Along the temporal dimension, it was divided into context sequence (first 8 seasons) and target sequence (last 8 seasons). 
+The input context sequence was directly fed into the memory cells (i.e. ConvLSTM or ST-LSTM) to produce the output with a 2D convolutional layer and pass information into the next memory cell. For the input target sequence, the input data were not directly fed into memory cells. Instead, there were used in combination with the predicted ground cover in the previous step according to the resampling method, which randomly sampled output and input ground cover (including mask) data, concatenated the auxiliary data and produced a new input to feed into the memory cells. In this step, a simulated mask with zero gap was generated for all the predicted ground cover to be consistent with the input data. There are two sampling methods used in this study. The first method is for standard sequence prediction of recurrent neural network, which purely used prediction result from the previous step to predict the next step and the true previous step is unknown, i.e. non-sampling. This non-sampling method is used for original ConvLSTM. Another sampling method is the Reverse Scheduled Sampling (RSS), which randomly hiding real observations with decreasing probabilities as the training progresses to force the model to learn more about long-term dynamics. For training, the RSS method was used for PredRNN. For forecasting and evaluation, non-sampling was used for both ConvLSTM and PredRNN.
+Finally, the overlapping time steps (i.e. season 2~16) in output and input sequences were used to calculate the loss function. The Mean absolute error (MSE)  was used to quantify training loss while the ensemble of MSE, the Huber Loss and the Structural Similarity Index (SSIM) was used for the validation step. As MSE and Huber Loss indicates better performance with small values, SSIM is just the opposite, so 1-SSIM was used to calculate the ensemble loss. 
+
+![Alt text](Figures/image.png?raw=true "Model structure")
 
 ## Show Cases
+Figures below demonstrates the performance of the model trained on the sample data at a single site.
+![Alt text](Figures/PredRNN_rs/images.jpg?raw=true "Model performance for a single data record")
+![Alt text](Figures/PredRNN_rs/timeseries.jpg?raw=true "Time series (all data records) of model performance (The next season prediction)")
+
 ## Get Started
 
