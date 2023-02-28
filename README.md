@@ -29,22 +29,61 @@ The input context sequence was directly fed into the memory cells (i.e. ConvLSTM
 
 Finally, the overlapping time steps (i.e. season 2~16) in output and input sequences were used to calculate the loss function. The Mean absolute error (MSE)  was used to quantify training loss while the ensemble of MSE, the Huber Loss and the Structural Similarity Index (SSIM) was used for the validation step. As MSE and Huber Loss indicates better performance with small values, SSIM is just the opposite, so 1-SSIM was used to calculate the ensemble loss. 
 
-![Alt text](Figures/image.png?raw=true "Model structure")
+![Alt text](Figures/modelstructure.png?raw=true "Model structure")
 
 ## Show Cases
-Figures below demonstrates the performance of the model trained on the sample data at a single site.
-![Alt text](Figures/PredRNN_rs/images.jpg?raw=true "Model performance for a single data record")
+![Alt text](Figures/PredRNN_rs/images.jpg?raw=true "Model performance for a single data record" )
+*Context, target and predicted images for a sampled testing record. The first row is the input context sequence, the second row is the target sequence, the third row is the predicted target images and the last row is the MAE between target and prediction.*
+
 ![Alt text](Figures/PredRNN_rs/timeseries.jpg?raw=true "Time series (all data records) of model performance (The next season prediction)")
+*Time series (all data records) of model performance (The next season prediction). The top panel shows the time series of observed and predicted ground cover. Grey bars shows the cloud cover and the black vertical line indicates when the new ground cover mapping method was introduced. The bottom panel shows the calculated MAE and SSIM for each time step.*
 
 ## Get Started
-1. Parameter configeration
-2. Train model with sample data
+1. Setup environment
 ```
-python scripts/model_train.py
+conda create -n convlstm python=3.9
+pip install env.txt
 ```
-3. Use model for prediction
+2. Parameter configeration. 
+- An example of generating configeration files for PredRNN\
+(wd: work directory;
+pd: path of data;
+mt: model type;
+ts: training sampling method; 
+iw: image width; 
+ih: image height; 
+nl: number of layer; 
+hc: number of hidden channel; 
+mc: number of mask channel; 
+oc: number of output channel; 
+bs: batch size; 
+e: epoch; 
+ft: number of future steps for training; 
+ct: number of context steps for training; 
+fv: number of future steps for validation)
+
+```
+python config/config.py -wd .. -pd ../Data/GC -mt PredRNN 
+-ts rs -iw 128 -ih 128 -nl 3 -hc 64 
+-mc 1 -oc 1 -ic 6 -bs 4 -e 1000     
+-ft 8 -ct 8 -fv 8
+```
+
+- More parameters to config can be found with
+
+```
+python config/config.py -h
+```
+
+3. Train model with sample data\
+(wd: work directory)
+```
+python scripts/model_train.py -wd ..
+```
+4. Use model for prediction\
+The trained ConvLSTM and PredRNN can be downloaded from [CloudStor](https://cloudstor.aarnet.edu.au/plus/s/UvG1xAWvU4HOXM0)
+(wd: work directory; md: model directory)
 ```
 python scripts/model_pred.py -wd .. -md PATH_TO_TRAINED_MODEL
-```
-The 
+``` 
 
