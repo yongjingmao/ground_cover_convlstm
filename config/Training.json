@@ -11,14 +11,14 @@
     "lr_threshold": 0.001,
     "optimizer": "adamW",
     "patience": 100,
-    "pickle_dir": "Data/GC",
+    "pickle_dir": "../Data/GC",
     "precision": 32,
-    "project_name": "ConvLSTM_None",
+    "project_name": "PredRNN_rs",
     "start_learn_rate": 0.0001,
     "test_batch_size": 4,
     "test_loss": "Ensamble",
     "train_batch_size": 4,
     "train_loss": "l2",
-    "training_sampling": "None",
+    "training_sampling": "rs",
     "val_batch_size": 4
 }

@@ -4,7 +4,7 @@ from os.path import join
 import pickle
 import glob
 
-sys.path.append(os.getcwd())
+sys.path.append('..')
 
 from core.models.ModelWrapperSampling import model_wrapper 
 from Data.data_preparation import Dataset
@@ -29,5 +29,5 @@ def load_data_point(dataset_path, label='test', include_non_pred=True, context_r
     context = truth[:, :, :, :, :t0] # b, c, h, w, t
     target = truth[:, :target_count+1, :, :, t0:] # b, c, h, w, t
     npf = truth[:, target_count+1:, :, :, t0:]
-    name = list_path[index].split('.')[0].split('/')[-1]
+    name = os.path.splitext(os.path.basename(list_path[index]))[0]
     return truth, context, target, npf, name

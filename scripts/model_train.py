@@ -12,7 +12,7 @@ import tensorboard
 import random
 
 #import pytorch_lightning as pl
-sys.path.append('../Github/ground_cover_convlstm')
+sys.path.append('..')
 from pytorch_lightning import Trainer
 from pytorch_lightning import loggers as pl_loggers
 from pytorch_lightning.loggers import WandbLogger
@@ -32,14 +32,15 @@ def getCmdargs():
     p.add_argument("-wd", "--work_dir", type=str, 
                    help="Work directory")
     p.add_argument("-ce", "--clear_existing", action="store_true",
-                        help="Whether clear existing checkpoint and logs")
+                   help="Whether clear existing checkpoint and logs")
     cmdargs = p.parse_args()
     return cmdargs
 
 def mainRoutine():
     cmdargs = getCmdargs()
     work_dir = cmdargs.work_dir
-
+    
+    # Load data and initialize model
     cfg_training = json.load(open(work_dir + "/config/Training.json", 'r'))
     model_type = cfg_training['project_name'].split('_')[0]
     cfg_model= json.load(open(work_dir + "/config/" + model_type + ".json", 'r'))
@@ -64,7 +65,7 @@ def mainRoutine():
             print('Clear log')
             shutil.rmtree(log_path, ignore_errors=True)
 
-    
+    # Set call backs
     checkpoint_callback = ModelCheckpoint(dirpath=checkpoint_path, 
                                           monitor="val_loss",
                                           save_on_train_epoch_end=True, 
@@ -80,7 +81,8 @@ def mainRoutine():
         callbacks = [checkpoint_callback]
 
     tb_logger = pl_loggers.TensorBoardLogger(save_dir=log_path)
-
+    
+    # Set model trainer
     trainer = Trainer(max_epochs=cfg_training["epochs"], 
                       devices=1,
                       accelerator="auto",
@@ -103,7 +105,8 @@ def mainRoutine():
             ckpt_path = os.path.join(checkpoint_path, 'last.ckpt')
         else:
             ckpt_path = os.path.join(checkpoint_path, checkpoint_lists[-1])
-
+    
+    # Train the model
     trainer.fit(model, dataset, ckpt_path=ckpt_path)
     
 if __name__ == "__main__":
