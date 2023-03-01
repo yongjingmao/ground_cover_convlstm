@@ -109,7 +109,6 @@ def mainRoutine():
 
     df_ts.sort_values('Date', inplace=True)
 
-
     # Visualize the result for the best predicted data record
     data_index = (df_ts.loc[df_ts['Label']=='test', 'MAE1']).astype('float').argmin()
     truth, context, target, npf, name = load_data_point(cfg_training["pickle_dir"], 'test', cfg_training["include_non_pred"],
@@ -170,7 +169,8 @@ def mainRoutine():
 
     # Visualize the time series of first step prediction
     colors = {'train':'#4d8047', 'val':'#064e78', 'test':'#e34f4f'}
-
+    if 'trained_models' in model_dir:
+        df_ts['Label'] = 'test'
     f, axes = plt.subplots(nrows=2, ncols=1, figsize=(10, 7), gridspec_kw={'height_ratios': [2, 1.2]})
     ax1 = axes[0]
     ax2 = ax1.twinx()
@@ -182,7 +182,7 @@ def mainRoutine():
                  color=colors[group], linestyle='-', label='{}_obs'.format(group))
         ax1.plot(df_ts.loc[idx, 'Date'], df_ts.loc[idx, 'Pred1'],
                  color=colors[group], linestyle='--',  label='{}_pred'.format(group))
-        if group == 'train':
+        if group == 'test':
 
             label = 'Cloud cover (%)'
         else:
