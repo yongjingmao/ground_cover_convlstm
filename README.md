@@ -89,6 +89,6 @@ python scripts/model_pred.py -wd .. -md PATH_TO_TRAINED_MODEL
 5. Use model to predict large area in tiles and mosaic results\
 (tw: tile width; th: tile height)
 ```
-python scripts/model_mosaic.py -tw 1280 -th 1280
+python scripts/model_mosaic.py -wd predicted_maps -tw 1280 -th 1280
 ```
 
