@@ -372,7 +372,8 @@ def mainRoutine():
 
     fig, axes = plt.subplots(1, 4, figsize = [16, 4])
     ax1 = axes[0]
-    im1 = show(last_obs.squeeze(), transform=transform_pred, vmin=50, vmax=100,  cmap='RdYlGn', ax=ax1)
+    im1 = show(last_obs.squeeze(), transform=transform_pred, interpolation='nearest',
+               vmin=50, vmax=100,  cmap='RdYlGn', ax=ax1)
     ax1.set_title('Ground cover obs\n {}'.format(str_last_season))
     x_ticks = ax1.get_xticks()
     y_ticks = ax1.get_yticks()
@@ -387,19 +388,22 @@ def mainRoutine():
     ax1.set_yticklabels(lat_labels)
     plt.colorbar(im1.get_images()[0], ax=ax1)
     ax2 = axes[1]
-    im2 = show(last_pred.squeeze(), transform=transform_pred, vmin=50, vmax=100,  cmap='RdYlGn', ax=ax2)
+    im2 = show(last_pred.squeeze(), transform=transform_pred, interpolation='nearest',
+               vmin=50, vmax=100,  cmap='RdYlGn', ax=ax2)
     plt.colorbar(im2.get_images()[0], ax=ax2)
     ax2.set_title('Ground cover pred\n {}'.format(str_last_season))
     ax2.set_xticklabels(lon_labels)
     ax2.set_yticklabels(lat_labels)
     ax3 = axes[2]
-    im3 = show(new_pred.squeeze(), transform=transform_pred, vmin=50, vmax=100,  cmap='RdYlGn', ax=ax3)
+    im3 = show(new_pred.squeeze(), transform=transform_pred, interpolation='nearest',
+               vmin=50, vmax=100,  cmap='RdYlGn', ax=ax3)
     plt.colorbar(im3.get_images()[0], ax=ax3)
     ax3.set_title('Ground cover pred\n {}'.format(str_next_season))
     ax3.set_xticklabels(lon_labels)
     ax3.set_yticklabels(lat_labels)
     ax4 = axes[3]
-    im4 = show(diff.squeeze(), transform=transform_pred, vmin=-20, vmax=20,  cmap='bwr_r', ax=ax4)
+    im4 = show(diff.squeeze(), transform=transform_pred, interpolation='nearest',
+               vmin=-20, vmax=20,  cmap='bwr_r', ax=ax4)
     ax4.set_title('Ground cover change')
     ax4.set_xticklabels(lon_labels)
     ax4.set_yticklabels(lat_labels)
