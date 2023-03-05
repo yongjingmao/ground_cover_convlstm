@@ -1,6 +1,7 @@
 import os
 import sys
 import glob
+import shutil
 import argparse
 
 import math
@@ -23,9 +24,9 @@ from pyproj import Proj, transform
 from shapely.geometry import box
 from shapely.ops import cascaded_union
 
-sys.path.append('..')
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__),"..")))
 import torch
-from scripts.load_model_data import load_model, load_data_point
+from load_model_data import load_data_point, load_model
 from core.models.ModelWrapperSampling import model_wrapper
 from Data.data_preparation import DataModule, Dataset
 
@@ -44,6 +45,10 @@ def getCmdargs():
     p.add_argument("-md", "--model_dir", type=str,
                    default="/scratch/rsc8/yongjingm/Github/ground_cover_convlstm/trained_models/PredRNN_rs/predrnn.ckpt",
                    help="Model directory")
+    p.add_argument("-tsd", "--train_start_date", type=str, default="1991-12-01",
+                   help="Starting date of training dataset")
+    p.add_argument("-ted", "--train_end_date", type=str, default="2022-06-01",
+                   help="End date of training dataset")
     p.add_argument("-tw", "--tile_width", type=int, default=128,
                    help="Width of each tile")
     p.add_argument("-th", "--tile_height", type=int, default=128,
@@ -95,7 +100,12 @@ def get_gc(grid_id, grids_gdf, pred_df, gc_dir, context_length, img_width=128, i
             new_transform = rasterio.Affine(transform.a*out_image.shape[1]/img_width, transform.b, transform.c, 
                                 transform.d, transform.e*out_image.shape[2]/img_height, transform.f)
             out_image = out_image[0].reshape(1, out_image.shape[1], out_image.shape[2])
-            out_mask = np.where(out_image==src.nodata, 1, 0).reshape(1, out_image.shape[1], out_image.shape[2])
+            #out_mask = np.where(out_image==src.nodata, 1, 0).reshape(1, out_image.shape[1], out_image.shape[2])
+            out_image = np.where(out_image==255, np.nan, out_image)
+            out_image = st.resize(out_image, (1, img_width, img_height))
+            out_mask = np.where(np.isnan(out_image), 1, 0)
+
+            
             out_meta = src.meta
 
             # Concat images
@@ -108,10 +118,6 @@ def get_gc(grid_id, grids_gdf, pred_df, gc_dir, context_length, img_width=128, i
 
             count += 1
 
-    #out_masks = st.resize(out_masks, (context_length, img_width, img_length))
-    out_images = np.where(out_images==255, np.nan, out_images)
-    out_images = st.resize(out_images, (context_length, img_width, img_height))
-    out_masks = np.where(np.isnan(out_images), 1, 0)
     image_data = np.concatenate((np.expand_dims(out_images, axis=-1), np.expand_dims(out_masks, axis=-1)), axis=-1)
     image_data = np.moveaxis(image_data, 0, -1)
     image_data = np.nan_to_num(image_data.astype(float), nan = 0.0)
@@ -124,7 +130,7 @@ def get_gc(grid_id, grids_gdf, pred_df, gc_dir, context_length, img_width=128, i
     return image_data, new_transform, out_meta
 
 
-def get_aux(grid_id, grids_gdf, pred_df, aux_dir, aux_vars, aux_filenames, img_width=128, img_height=128):
+def get_aux(grid_id, grids_gdf, pred_df, train_df, aux_dir, aux_vars, aux_filenames, img_width=128, img_height=128):
     """
     Read and process auxiliary data for a tile
     """
@@ -136,20 +142,24 @@ def get_aux(grid_id, grids_gdf, pred_df, aux_dir, aux_vars, aux_filenames, img_w
             AOI = AOIs.loc[grid_id, 'geometry']
             aux_month, aux_transform = rasterio.mask.mask(src, [box(*AOI.bounds)], crop=True, all_touched=True)
             aux_month = np.where(aux_month==src.nodata, np.nan, aux_month)
-            aux_month = st.resize(aux_month, (aux_month.shape[0], img_width, img_height))
+            aux_month = st.resize(aux_month, (aux_month.shape[0], img_width, img_height), order=0)
 
             aux_means = np.nanmean(aux_month, (1, 2))
             aux_means = np.expand_dims(aux_means, (1,2)).repeat(aux_month.shape[1], 1).repeat(aux_month.shape[2], 2)
             aux_month = np.where(np.isnan(aux_month), aux_means, aux_month)
 
-            idx = pred_df['{}_idx'.format(aux_var)]
-            if len(aux_month) == max(idx) + 1:
-                aux_month = np.concatenate((aux_month,  aux_month[[max(idx)], :, :], aux_month[[max(idx)], :, :]), axis=0)
-            elif len(aux_month) == max(idx) + 2:
-                aux_month = np.concatenate((aux_month,  aux_month[[max(idx)], :, :]), axis=0)
-
-            aux_season = (aux_month[idx, :, :]+aux_month[idx+1, :, :]+aux_month[idx+2, :, :])/3
-            aux_season = (aux_season - np.nanmin(aux_season))/(np.nanmax(aux_season) - np.nanmin(aux_season))
+            idx_pred = pred_df['{}_idx'.format(aux_var)]
+            idx_train = train_df['{}_idx'.format(aux_var)]
+            max_id = max(max(idx_pred), max(idx_train))
+            
+            if len(aux_month) == max_id + 1:
+                aux_month = np.concatenate((aux_month,  aux_month[[max_id], :, :], aux_month[[max_id], :, :]), axis=0)
+            elif len(aux_month) == max_id + 2:
+                aux_month = np.concatenate((aux_month,  aux_month[[max_id], :, :]), axis=0)
+            
+            aux_season_pred = (aux_month[idx_pred, :, :]+aux_month[idx_pred+1, :, :]+aux_month[idx_pred+2, :, :])/3
+            aux_season_train = (aux_month[idx_train, :, :]+aux_month[idx_train+1, :, :]+aux_month[idx_train+2, :, :])/3
+            aux_season = (aux_season_pred - np.nanmin(aux_season_train))/(np.nanmax(aux_season_train) - np.nanmin(aux_season_train))
 
             aux_season = np.expand_dims(aux_season, axis=-1)
 
@@ -162,7 +172,7 @@ def get_aux(grid_id, grids_gdf, pred_df, aux_dir, aux_vars, aux_filenames, img_w
     aux_data = np.nan_to_num(aux_data, nan = 0.0)
     return aux_data
 
-def spline_window(window_size, power=2):
+def spline_window(window_size, power=2, channel=1):
     """
     Squared spline (power=2) window function:
     a filter with large weights in center and low weights around edges
@@ -180,7 +190,9 @@ def spline_window(window_size, power=2):
     
     wind = np.expand_dims(wind, 1)
     wind_2D = wind*wind.transpose()/4
-    return wind_2D
+    wind_final = np.expand_dims(wind_2D, 0)
+    wind_final = np.repeat(wind_final, channel, 0)
+    return wind_final
 
 
 def merge_smooth_edge(old_data, new_data, old_nodata, new_nodata, index=None, roff=None, coff=None):
@@ -190,10 +202,9 @@ def merge_smooth_edge(old_data, new_data, old_nodata, new_nodata, index=None, ro
     old_data[:] = old_data + new_data*wind_weights
 
 
-def pred_mosaic(grid_pred_dir, ROI_gdf):
+def pred_mosaic(grid_tile_fps, ROI_gdf, n_channel):
     global wind_weights
-    wind_weights = spline_window(128, 2)
-    grid_tile_fps = glob.glob(grid_pred_dir+'/grid*.tif')
+    wind_weights = spline_window(128, 2, n_channel)
     src_files_to_mosaic = []
     for fp in grid_tile_fps:
         src = rasterio.open(fp)
@@ -230,6 +241,8 @@ def mainRoutine():
     gc_dir = cmdargs.gc_dir
     aux_dir = cmdargs.aux_dir
     model_dir = cmdargs.model_dir
+    train_start_date = cmdargs.train_start_date
+    train_end_date = cmdargs.train_end_date
     tile_height = cmdargs.tile_height
     tile_width = cmdargs.tile_width
     clear_cache = cmdargs.clear_cache
@@ -286,6 +299,7 @@ def mainRoutine():
 
     merge_df = merge_df[~merge_df.index.duplicated(keep='last')]
     pred_df = merge_df.iloc[-context_length:, :]
+    train_df = merge_df.loc[(merge_df.index>=train_start_date)&(merge_df.index<=train_end_date), :]
 
 
     # Load trained model
@@ -294,14 +308,15 @@ def mainRoutine():
     # Predict each grid
     for grid_id in sorted(grids_gdf.index):
     
-        grid_pred_fp = cache_path + '/grid{:03d}.tif'.format(grid_id)
+        pred_fp = cache_path + '/pred_grid{:03d}.tif'.format(grid_id)
+        obs_fp = cache_path + '/obs_grid{:03d}.tif'.format(grid_id)
         
-        if not os.path.exists(grid_pred_fp):        
+        if not os.path.exists(obs_fp):        
             print('Predicting grid {}/{}'.format(grid_id, len(grids_gdf)))
 
             # Prepare image and auxiliary data
             image_data, transform_image, meta = get_gc(grid_id, grids_gdf, pred_df, gc_dir, context_length, img_width, img_height)
-            aux_data = get_aux(grid_id, grids_gdf, pred_df, aux_dir, aux_vars, aux_filenames, img_width, img_height)
+            aux_data = get_aux(grid_id, grids_gdf, pred_df, train_df, aux_dir, aux_vars, aux_filenames, img_width, img_height)
 
             all_data = np.append(image_data, aux_data, axis=-2)
             all_data = torch.Tensor(all_data).permute(2, 0, 1, 3)
@@ -309,44 +324,56 @@ def mainRoutine():
 
             # Make prediction
             preds = model(truth, 16, 0, sampling=None).to('cpu')
-            new_pred = preds[:, 0, :, :, -1].detach().reshape(img_width, img_height)
-            new_pred = (new_pred*100)
-            new_pred = np.where(np.isnan(new_pred), 255, new_pred).astype(int)
-
+            preds = preds[0, 0, :, :, :].detach().squeeze()*100
+            preds = np.where(np.isnan(preds), 255, preds).astype(int)
+            print(preds.shape)
+            obs = image_data[:, :, 0, :].squeeze()*100
+            obs_mask = image_data[:, :, 1, :].squeeze()
+            obs = np.where(obs_mask==1, 255, obs).astype(int)
+            
+            meta['count'] = obs.shape[-1]
             # Save prediction
             with rasterio.Env():
                 profile = meta
-                with rasterio.open(grid_pred_fp, 'w', **profile) as dst:
-                    dst.write(new_pred, 1)
+                with rasterio.open(pred_fp, 'w', **profile) as dst:
+                    dst.write(preds.transpose(2, 0, 1))
+            
+            # Save prediction
+            with rasterio.Env():
+                profile = meta
+                with rasterio.open(obs_fp, 'w', **profile) as dst:
+                    dst.write(obs.transpose(2, 0, 1))
                     
         
-
-    mosaic_pred, transform_pred, meta_pred = pred_mosaic(cache_path, ROI_gdf)
+    pred_fps = glob.glob(cache_path+'/pred_grid*.tif')
+    obs_fps = glob.glob(cache_path+'/obs_grid*.tif')
+    mosaic_pred, transform_pred, meta_pred = pred_mosaic(pred_fps, ROI_gdf, len(pred_df))
+    mosaic_obs, _, _ = pred_mosaic(obs_fps, ROI_gdf, len(pred_df))
+    
     date_next_season = pred_df.index[-1] + relativedelta(months=+3)
+    str_last_season = datetime.strftime(pred_df.index[-1], "%Y-%m-%d")
     str_next_season = datetime.strftime(date_next_season, "%Y-%m-%d")
-    mosaic_fp = work_dir+'/Pred_mosaic_{}.tif'.format(str_next_season)
-    with rasterio.open(mosaic_fp, "w", **meta_pred) as dest:
+    
+    mosaic_pred_fp = work_dir+'/Pred_mosaic_{}.tif'.format(str_next_season)
+    with rasterio.open(mosaic_pred_fp, "w", **meta_pred) as dest:
          dest.write(mosaic_pred)
             
+    mosaic_obs_fp = work_dir+'/Obs_mosaic_{}.tif'.format(str_last_season)
+    with rasterio.open(mosaic_obs_fp, "w", **meta_pred) as dest:
+         dest.write(mosaic_obs)
+            
+    gc_obs = np.where(mosaic_obs==255, np.nan, 100-mosaic_obs)
+    gc_pred = np.where(mosaic_pred==255, np.nan, 100-mosaic_pred)
     
-    #Plot results
-    with rasterio.open(os.path.join(gc_dir, merge_df.iloc[-1, 0])) as src_obs:    
-        ROI_gdf_proj = ROI_gdf.to_crs(src_obs.crs)
-        AOI = ROI_gdf_proj.loc[0, 'geometry']
-        last_bare0, transform_obs = rasterio.mask.mask(src_obs, AOI, crop=True, all_touched=True)
-        
-    last_bare = last_bare0[[0], :, :]
-    last_bare = st.resize(last_bare, mosaic_pred.shape, order=0, preserve_range=True)
-    last_obs = np.where((mosaic_pred==255)|(last_bare>100), np.nan, 100-last_bare)
-    
-    print(np.nanmean(last_obs))
-    new_pred = np.where(mosaic_pred==255, np.nan, 100-mosaic_pred)
-    diff = new_pred - last_obs
+    last_obs = gc_obs[-1, :, :]
+    last_pred = gc_pred[-2, :, :]
+    new_pred = gc_pred[-1, :, :]
+    diff = new_pred - last_pred
 
-    fig, axes = plt.subplots(1, 3, figsize = [15, 5])
+    fig, axes = plt.subplots(1, 4, figsize = [16, 4])
     ax1 = axes[0]
     im1 = show(last_obs.squeeze(), transform=transform_pred, vmin=50, vmax=100,  cmap='RdYlGn', ax=ax1)
-    ax1.set_title('Ground cover obs\n {}'.format(datetime.strftime(merge_df.index[-1], "%Y-%m-%d")))
+    ax1.set_title('Ground cover obs\n {}'.format(str_last_season))
     x_ticks = ax1.get_xticks()
     y_ticks = ax1.get_yticks()
     x_coords, y_coords = np.meshgrid(x_ticks, y_ticks)
@@ -360,17 +387,23 @@ def mainRoutine():
     ax1.set_yticklabels(lat_labels)
     plt.colorbar(im1.get_images()[0], ax=ax1)
     ax2 = axes[1]
-    im2 = show(new_pred.squeeze(), transform=transform_pred, vmin=50, vmax=100,  cmap='RdYlGn', ax=ax2)
+    im2 = show(last_pred.squeeze(), transform=transform_pred, vmin=50, vmax=100,  cmap='RdYlGn', ax=ax2)
     plt.colorbar(im2.get_images()[0], ax=ax2)
-    ax2.set_title('Ground cover pred\n {}'.format(datetime.strftime(date_next_season, "%Y-%m-%d")))
+    ax2.set_title('Ground cover pred\n {}'.format(str_last_season))
     ax2.set_xticklabels(lon_labels)
     ax2.set_yticklabels(lat_labels)
     ax3 = axes[2]
-    im3 = show(diff.squeeze(), transform=transform_pred, vmin=-20, vmax=20,  cmap='bwr_r', ax=ax3)
-    ax3.set_title('Ground cover change')
+    im3 = show(new_pred.squeeze(), transform=transform_pred, vmin=50, vmax=100,  cmap='RdYlGn', ax=ax3)
+    plt.colorbar(im3.get_images()[0], ax=ax3)
+    ax3.set_title('Ground cover pred\n {}'.format(str_next_season))
     ax3.set_xticklabels(lon_labels)
     ax3.set_yticklabels(lat_labels)
-    plt.colorbar(im3.get_images()[0], ax=ax3)
+    ax4 = axes[3]
+    im4 = show(diff.squeeze(), transform=transform_pred, vmin=-20, vmax=20,  cmap='bwr_r', ax=ax4)
+    ax4.set_title('Ground cover change')
+    ax4.set_xticklabels(lon_labels)
+    ax4.set_yticklabels(lat_labels)
+    plt.colorbar(im4.get_images()[0], ax=ax4)
     plt.savefig(work_dir+'/Pred.jpg', dpi=300)
 
     if clear_cache:

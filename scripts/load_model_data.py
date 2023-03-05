@@ -4,7 +4,7 @@ from os.path import join
 import pickle
 import glob
 
-sys.path.append('..')
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__),"..")))
 
 from core.models.ModelWrapperSampling import model_wrapper 
 from Data.data_preparation import Dataset

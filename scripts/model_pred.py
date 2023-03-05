@@ -13,13 +13,12 @@ import json
 import torch
 from skimage.metrics import structural_similarity as ssim
 
-sys.path.append('..')
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__),"..")))
 from Data import data_preparation
 from Data.data_preparation import DataModule
 import load_model_data
 from load_model_data import load_data_point, load_model
 
-#sys.path.append(os.getcwd()+'/demos')
 import gc
 torch.cuda.empty_cache()
 gc.collect()

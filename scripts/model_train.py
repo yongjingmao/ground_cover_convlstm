@@ -12,7 +12,7 @@ import tensorboard
 import random
 
 #import pytorch_lightning as pl
-sys.path.append('..')
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__),"..")))
 from pytorch_lightning import Trainer
 from pytorch_lightning import loggers as pl_loggers
 from pytorch_lightning.loggers import WandbLogger
