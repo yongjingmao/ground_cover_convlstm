@@ -14,6 +14,7 @@ from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
 
 import skimage.transform as st
+from skimage.metrics import structural_similarity as ssim
 import rasterio
 import rasterio.mask
 import rasterio.features
@@ -353,6 +354,8 @@ def mainRoutine():
     date_next_season = pred_df.index[-1] + relativedelta(months=+3)
     str_last_season = datetime.strftime(pred_df.index[-1], "%Y-%m-%d")
     str_next_season = datetime.strftime(date_next_season, "%Y-%m-%d")
+    all_seasons = list(pred_df.index)
+    all_seasons.append(date_next_season)
     
     mosaic_pred_fp = work_dir+'/Pred_mosaic_{}.tif'.format(str_next_season)
     with rasterio.open(mosaic_pred_fp, "w", **meta_pred) as dest:
@@ -409,6 +412,30 @@ def mainRoutine():
     ax4.set_yticklabels(lat_labels)
     plt.colorbar(im4.get_images()[0], ax=ax4)
     plt.savefig(work_dir+'/Pred.jpg', dpi=300)
+    
+    # Plot time series of predicted sequence
+    Obs_ts = np.nanmean(gc_obs, (1,2))
+    Pred_ts = np.nanmean(gc_pred, (1,2))
+    MAE_ts = np.nanmean(np.abs(gc_obs[1:16, :, :]-gc_pred[0:15, :, :]), (1, 2))
+    SSIM_ts = [ssim(obs, pred) for (obs, pred) in zip(mosaic_obs[1:16, :, :], mosaic_pred[0:15, :, :])]
+    f, axes = plt.subplots(nrows=2, ncols=1, figsize=(10, 7), gridspec_kw={'height_ratios': [2, 1.2]})
+    ax1 = axes[0]
+    ax2 = axes[1]
+    ax3 = ax2.twinx()
+    ax1.plot(all_seasons[:16], Obs_ts, color='#e34f4f', linestyle='-',  label='Obs')
+    ax1.plot(all_seasons[1:17], Pred_ts, color='#e34f4f', linestyle='--',  label='Pred')
+    ax1.legend(loc=2)
+    ax1.set_ylabel('Ground cover (spatial average)')
+    ax2.plot(all_seasons[1:16], MAE_ts, color='#e34f4f', linestyle='-',  label='MAE')
+    ax2.legend(loc=2)
+    ax2.set_ylabel('MAE')
+    ax3.plot(all_seasons[1:16], SSIM_ts, color='#e34f4f', linestyle='--',  label='SSIM')
+    ax3.legend(loc=0)
+    ax3.set_ylabel('SSIM')
+    ax3.set_xticks(ax1.get_xticks())
+    ax3.set_xticklabels(ax1.get_xticklabels())
+    ax3.set_xlim(ax1.get_xlim())
+    plt.savefig(work_dir+'/Timeseries.jpg', dpi=300)
 
     if clear_cache:
         shutil.rmtree(cache_path, ignore_errors=True)
