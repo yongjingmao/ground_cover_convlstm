@@ -33,11 +33,7 @@ class Dataset(torch.utils.data.Dataset):
         context = np.load(self.paths[index], allow_pickle=True)
         
         images = np.nan_to_num(context['image'].astype(float), nan = 0.0)
-        
-        # Scaled data
-        images = np.where(images==255, 0, images)
-        images[:, :, 0, :] = images[:, :, 0, :]/100  
-
+       
         auxiliary = np.nan_to_num(context['auxiliary'], nan = 0.0)
         
         if self.include_non_pred:
