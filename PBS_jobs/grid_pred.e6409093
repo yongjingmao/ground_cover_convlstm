@@ -1,0 +1,17 @@
+model_mosaic.py:243: ShapelyDeprecationWarning: The 'cascaded_union()' function is deprecated. Use 'unary_union()' instead.
+  AOI = cascaded_union(ROI_gdf_proj['geometry'])
+model_mosaic.py:243: ShapelyDeprecationWarning: The 'cascaded_union()' function is deprecated. Use 'unary_union()' instead.
+  AOI = cascaded_union(ROI_gdf_proj['geometry'])
+########################### Job Execution History #############################
+JobId:6409093.athena40
+UserName:yongjingm
+GroupName:rsc
+JobName:grid_pred
+ExecNode:athena56
+SessionId:17295
+ResourcesRequested:mem=16gb,walltime=20:00:00,ncpus=1,place=pack
+ResourcesUsed:cput=00:03:39,mem=12981600kb,walltime=00:07:23,ncpus=1,cpupercent=41,vmem=23318212kb
+QueueUsed:gpuq
+AccountString:null
+ExitStatus:0
+###############################################################################

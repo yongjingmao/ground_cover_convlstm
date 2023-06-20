@@ -1,0 +1,23 @@
+model_mosaic.py:243: ShapelyDeprecationWarning: The 'cascaded_union()' function is deprecated. Use 'unary_union()' instead.
+  AOI = cascaded_union(ROI_gdf_proj['geometry'])
+model_mosaic.py:243: ShapelyDeprecationWarning: The 'cascaded_union()' function is deprecated. Use 'unary_union()' instead.
+  AOI = cascaded_union(ROI_gdf_proj['geometry'])
+Traceback (most recent call last):
+  File "model_mosaic.py", line 505, in <module>
+    mainRoutine()
+  File "model_mosaic.py", line 482, in mainRoutine
+    ax1.bar(all_seasons[2:-1]-bar_width, Obs_inc[1:], width=bar_width, edgecolor='#b37b7b', facecolor='#b37b7b',
+TypeError: unsupported operand type(s) for -: 'list' and 'Timedelta'
+########################### Job Execution History #############################
+JobId:6410283.athena40
+UserName:yongjingm
+GroupName:rsc
+JobName:grid_pred
+ExecNode:athena56
+SessionId:10162
+ResourcesRequested:mem=16gb,walltime=20:00:00,ncpus=1,place=pack
+ResourcesUsed:cput=00:03:08,mem=11592392kb,walltime=00:06:47,ncpus=1,cpupercent=43,vmem=21515832kb
+QueueUsed:gpuq
+AccountString:null
+ExitStatus:1
+###############################################################################

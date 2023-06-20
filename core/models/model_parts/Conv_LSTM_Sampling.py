@@ -1,6 +1,5 @@
 import torch.nn as nn
 import torch
-from ..utils.utils import zeros, mean_cube, last_frame, last_season
 
 class Conv_LSTM_Cell(nn.Module):
     def __init__(self, input_dim, h_channels, big_mem, kernel_size, memory_kernel_size, dilation_rate, layer_norm_flag, img_width, img_height, mask_channel, peephole):
@@ -69,12 +68,9 @@ class Conv_LSTM_Cell(nn.Module):
 
 class Conv_LSTM(nn.Module):
     def __init__(self, input_dim, output_dim, hidden_dims, big_mem, kernel_size, memory_kernel_size, dilation_rate, 
-                 img_width, img_height, layer_norm_flag=True, baseline="last_frame", num_layers=1, mask_channel = 1,
+                 img_width, img_height, layer_norm_flag=True, num_layers=1, baseline="last_frame", mask_channel = 1,
                  peephole=True):
         """
-        Can be initialized both with and without peephole connections. This Conv_LSTM works in a delta prediction 
-        fashion, i.e. predicts the deviation to a given baseline.
-
         Parameters:
             input_dim: Number of channels in input
             output_dim: Number of channels in the output
@@ -85,13 +81,14 @@ class Conv_LSTM(nn.Module):
             img_width: Width of the image in pixels
             img_height: Height of the image in pixels
             layer_norm_flag: Whether to perform layer normalization
-            baseline: What baseline function to use
             num_layers: Number of LSTM layers stacked on each other
+            baseline: Used for quicker convergence for non-sampling methods, not necessary in this model
+            mask_channel: Index of mask channel
             peephole: Whether to include peephole connections or not
         Input:
-            A tensor of shape (b, c, w, h, t)
+            A tensor of shape (b, c, w, h, t), step 1~t
         Output:
-            The residual from the baseline
+            A tensor of shape (b, c, w, h, t), step 2~t+1
         """
         super(Conv_LSTM, self).__init__()
         self._check_kernel_size_consistency(kernel_size)
@@ -108,7 +105,6 @@ class Conv_LSTM(nn.Module):
         self.layer_norm_flag = layer_norm_flag
         self.img_width = img_width
         self.img_height = img_height
-        self.baseline = baseline
         self.mask_channel = mask_channel
         self.peephole = peephole
 
@@ -140,11 +136,9 @@ class Conv_LSTM(nn.Module):
             5-D Tensor either of shape (b, c, w, h, t)
         non_pred_feat:
             non-predictive features for future frames
-        baseline:
-            baseline computed on the input variables. Only needed for prediction_count > 1.
         Returns
         -------
-        pred_deltas
+        prediction
         """
         batch, _, width, height, T = input_tensor.size()
         input_flag = torch.from_numpy(input_flag[:batch,...]).to(self._get_device(), dtype=torch.float)

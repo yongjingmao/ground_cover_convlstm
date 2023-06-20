@@ -2,8 +2,6 @@ import pytorch_lightning as pl
 import numpy as np
 import math
 from torch.optim.lr_scheduler import ReduceLROnPlateau
-from .model_parts.AutoencLSTM import AutoencLSTM
-from .model_parts.Conv_Transformer import Conv_Transformer_npf
 from .model_parts.Conv_LSTM_Sampling import Conv_LSTM
 from .model_parts.Pred_RNN_Sampling import Pred_RNN
 from ..losses import get_loss_from_name
@@ -13,9 +11,9 @@ from ..optimizers import get_opt_from_name
 class model_wrapper(pl.LightningModule):
     def __init__(self, model_type, model_cfg, training_cfg):
         """
-        This is the supermodel that wraps all the possible models to do satellite image forecasting. 
-        It uses the model (specified by 'model_type') that it wraps to predict a deviation onto the 
-        specified baseline (specified in 'self.training_cfg["baseline"]').
+        This is the supermodel that wraps all the possible models to do ground cover forecasting
+        with resampling incorporated. 
+        It uses the model (specified by 'model_type') that it wraps to predict.
 
         Parameters:
             cfg (dict) -- model configuration parameters
@@ -51,40 +49,12 @@ class model_wrapper(pl.LightningModule):
                                  layer_norm_flag=self.model_cfg["layer_norm"],
                                  img_width=self.model_cfg["img_width"],
                                  img_height=self.model_cfg["img_height"],
-                                 mask_channel = self.model_cfg['mask_channel'])
-        elif model_type == "AutoencLSTM":
-            self.model = AutoencLSTM(input_dim=self.model_cfg["input_channels"],
-                                     output_dim=self.model_cfg["output_channels"],
-                                     hidden_dims=self.model_cfg["hidden_channels"],
-                                     big_mem=self.model_cfg["big_mem"],
-                                     num_layers=self.model_cfg["n_layers"],
-                                     kernel_size=self.model_cfg["kernel"],
-                                     memory_kernel_size=self.model_cfg["memory_kernel"],
-                                     dilation_rate=self.model_cfg["dilation_rate"],
-                                     baseline=self.training_cfg["baseline"],
-                                     layer_norm_flag=self.model_cfg["layer_norm"],
-                                     img_width=self.model_cfg["img_width"],
-                                     img_height=self.model_cfg["img_height"],
-                                     mask_channel = self.model_cfg['mask_channel'],
-                                     peephole=self.model_cfg["peephole"])
-        elif model_type == "ConvTransformer":
-            self.model = Conv_Transformer_npf(num_hidden=self.model_cfg["num_hidden"],
-                                              output_dim=self.model_cfg["output_channels"],
-                                              depth=self.model_cfg["depth"],
-                                              dilation_rate=self.model_cfg["dilation_rate"],
-                                              num_conv_layers=self.model_cfg["num_conv_layers"],
-                                              kernel_size=self.model_cfg["kernel_size"],
-                                              img_width=self.model_cfg["img_width"],
-                                              non_pred_channels=self.model_cfg["non_pred_channels"],
-                                              in_channels=self.model_cfg["in_channels"],
-                                              mask_channel = self.model_cfg["mask_channel"],
-                                              baseline=self.training_cfg["baseline"])
+                                 mask_channel = self.model_cfg['mask_channel'])        
             
         self.baseline = self.training_cfg["baseline"]
         self.context_training = self.training_cfg["context_training"]
         self.future_training = self.training_cfg["future_training"]
         self.total_training = self.context_training + self.future_training
-        #self.future_validation = self.training_cfg["future_validation"]
         self.learning_rate = self.training_cfg["start_learn_rate"]
         self.mask_channel = self.model_cfg["mask_channel"]
         
@@ -93,7 +63,6 @@ class model_wrapper(pl.LightningModule):
         self.r_sampling_step_2 = int(self.training_cfg["epochs"]/2)
         self.r_exp_alpha = self.training_cfg["epochs"]/20
         
-        #self.scheduled_sampling = self.model_cfg["scheduled_sampling"]
         self.sampling_stop_epoch = int(self.training_cfg["epochs"]*0.8)
         self.sampling_start_value = 1
         self.sampling_changing_rate = 1/self.sampling_stop_epoch
@@ -114,13 +83,10 @@ class model_wrapper(pl.LightningModule):
     def forward(self, x, context_count, future_count, sampling=None):
         """
         :param x: All features of the input time steps.
-        :param prediction_count: The amount of time steps that should be predicted all at once.
+        :param future_count: The amount of time steps that should be predicted all at once.
         :param non_pred_feat: Only need if prediction_count > 1. All features that are not predicted
             by the model for all the future time steps we want to predict.
         :return: preds: Full predicted images.
-        :return: predicted deltas: Predicted deltas with respect to baselines.
-        :return: baselines: All future baselines as computed by the predicted deltas. Note: These are NOT the ground truth baselines.
-        Do not use these for computing a loss!
         """
         epoch = self.current_epoch
         eta = self.sampling_start_value - self.sampling_changing_rate*epoch
@@ -186,18 +152,11 @@ class model_wrapper(pl.LightningModule):
                         real_input_flag[i, :, :, :, j] = trues
                     else:
                         real_input_flag[i, :, :, :, j] = falses
-
-        # real_input_flag = np.array(real_input_flag)
-        # real_input_flag = np.reshape(real_input_flag,
-        #                              (self.train_batch_size,
-        #                               self.model_cfg["input_channels"],
-        #                               self.model_cfg["img_width"],
-        #                               self.model_cfg["img_height"],
-        #                               self.total_training - 2))
         return real_input_flag
 
 
     def schedule_sampling(self, eta, epoch):
+        # Create schedule sampling mask
         random_flip = np.random.random_sample(
             (self.train_batch_size, self.future_training - 1))
         true_token = (random_flip < eta)
@@ -220,16 +179,10 @@ class model_wrapper(pl.LightningModule):
                     real_input_flag[i, :, :, :, j] = trues
                 else:
                     real_input_flag[i, :, :, :, j] = falses
-        # real_input_flag = np.array(real_input_flag)
-        # real_input_flag = np.reshape(real_input_flag,
-        #                              (self.train_batch_size,
-        #                               self.model_cfg["input_channels"],
-        #                               self.model_cfg["img_width"],
-        #                               self.model_cfg["img_height"],
-        #                               self.future_training - 1))
         return real_input_flag
 
-    def batch_loss(self, batch, sampling=None, loss=None):        
+    def batch_loss(self, batch, sampling=None, loss=None):
+        # Calculate batch loss
         input_tensor = batch
         target = batch[:, :self.mask_channel+1, :, :, 1:self.total_training]
         
@@ -237,9 +190,11 @@ class model_wrapper(pl.LightningModule):
                      sampling=sampling)
         
         if loss is None:
-            return self.train_loss(labels=target, prediction=x_preds[...,:target.shape[-1]], mask_channel=self.mask_channel)
+            return self.train_loss(labels=target, prediction=x_preds[...,:target.shape[-1]], 
+                                   mask_channel=self.mask_channel)
         else:
-            return loss(labels=target, prediction=x_preds[...,:target.shape[-1]], mask_channel = self.mask_channel)
+            return loss(labels=target, prediction=x_preds[...,:target.shape[-1]], 
+                        mask_channel = self.mask_channel)
 
     def configure_optimizers(self):        
         optimizer = get_opt_from_name(self.training_cfg["optimizer"],
@@ -282,16 +237,7 @@ class model_wrapper(pl.LightningModule):
             h = height
             t = time
         '''
-        if self.training_cfg["test_loss"] == 'ENS':
-            v_loss = self.batch_loss(batch, sampling=self.training_sampling, loss=self.test_loss)
-            l = v_loss[0]
-            metrics = {
-                'val_loss': v_loss[0],
-                'MAD': v_loss[1],
-                'SSIM': v_loss[2],
-                'OLS': v_loss[3],
-                'EMD': v_loss[4]}
-        elif self.training_cfg["test_loss"] == 'Ensamble':
+        if self.training_cfg["test_loss"] == 'Ensamble':
             l, ssim, mse, huber = self.batch_loss(batch, sampling=self.training_sampling, loss=self.test_loss)
             metrics = {
                 'val_loss': l,

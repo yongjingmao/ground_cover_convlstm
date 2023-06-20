@@ -10,14 +10,14 @@ import glob
 class Dataset(torch.utils.data.Dataset):
     def __init__(self, paths, include_non_pred):
         '''
-            paths: list of input paths
-            include_non_pred: whether include non-predict feature
+        paths: list of input paths
+        include_non_pred: whether include non-predict feature
 
-            The dataset combines the different components of a earchnet data cube.
+        The dataset combines the ground cover data and the auxiliary data.
 
-            ground cover (seasonal) - leave as it is
-            auxiliary                - replicate the values to the entire image & each channel represents a property
-                                       | Precipitation
+        ground cover (seasonal) - leave as it is
+        auxiliary                - replicate the values to the entire image & each channel represents a property
+                                   | Precipitation
         '''
         self.paths = paths
         self.include_non_pred = include_non_pred
@@ -60,10 +60,11 @@ class DataModule(pl.LightningDataModule):
                  test_batch_size = 4, 
                  include_non_pred = True):
         """
-        This is wrapper for all of our datasets. It preprocesses the data into a format that can be fed into our model.
+        This is wrapper for all datasets. It preprocesses the data into a format that can be fed into the model.
 
         Parameters:
-            data_dir: Location of pickle file with paths to the train/validation/test datapoints or a dictionary of file lists
+            data_dir: The pickle file with paths to the train/validation/test datapoints 
+            or a dictionary of files
             train_batch_size: Number of data points in a single train batch
             val_batch_size: Number of data points in a single validation batch
             test_batch_size: Number of data points in a single test batch
@@ -88,7 +89,6 @@ class DataModule(pl.LightningDataModule):
             self.testing_path_list = filelists['test']
             self.validation_path_list = filelists['val']
             
-
 
     def setup(self, stage):
         # assign Train/val split(s) for use in Dataloaders

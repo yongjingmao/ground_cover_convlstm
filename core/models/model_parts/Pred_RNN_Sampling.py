@@ -1,7 +1,6 @@
 import torch.nn as nn
 import torch
 import torch.nn.functional as F
-from ..utils.utils import zeros, mean_cube, last_frame, last_season
 
 class SpatioTemporalLSTMCell(nn.Module):
     def __init__(self, input_dim, h_channels, kernel_size, img_width, img_height, layer_norm_flag):
@@ -20,35 +19,44 @@ class SpatioTemporalLSTMCell(nn.Module):
         
         if self.layer_norm_flag:
             self.conv_x = nn.Sequential(
-                nn.Conv2d(self.input_dim, self.h_channels * 7, kernel_size=kernel_size, stride=self.stride, padding=self.padding, bias=False),
+                nn.Conv2d(self.input_dim, self.h_channels * 7, 
+                          kernel_size=kernel_size, stride=self.stride, padding=self.padding, bias=False),
                 nn.LayerNorm([self.h_channels * 7, self.img_width, self.img_height])
             )
             self.conv_h = nn.Sequential(
-                nn.Conv2d(self.h_channels, self.h_channels * 4, kernel_size=kernel_size, stride=self.stride, padding=self.padding, bias=False),
+                nn.Conv2d(self.h_channels, self.h_channels * 4, 
+                          kernel_size=kernel_size, stride=self.stride, padding=self.padding, bias=False),
                 nn.LayerNorm([self.h_channels * 4, self.img_width, self.img_height])
             )
             self.conv_m = nn.Sequential(
-                nn.Conv2d(self.h_channels, self.h_channels * 3, kernel_size=kernel_size, stride=self.stride, padding=self.padding, bias=False),
+                nn.Conv2d(self.h_channels, self.h_channels * 3, 
+                          kernel_size=kernel_size, stride=self.stride, padding=self.padding, bias=False),
                 nn.LayerNorm([self.h_channels * 3, self.img_width, self.img_height])
             )
             self.conv_o = nn.Sequential(
-                nn.Conv2d(self.h_channels * 2, self.h_channels, kernel_size=kernel_size, stride=self.stride, padding=self.padding, bias=False),
+                nn.Conv2d(self.h_channels * 2, self.h_channels, 
+                          kernel_size=kernel_size, stride=self.stride, padding=self.padding, bias=False),
                 nn.LayerNorm([self.h_channels, self.img_width, self.img_height])
             )
         else:
             self.conv_x = nn.Sequential(
-                nn.Conv2d(self.input_dim, self.h_channels * 7, kernel_size=kernel_size, stride=self.stride, padding=self.padding, bias=False),
+                nn.Conv2d(self.input_dim, self.h_channels * 7, 
+                          kernel_size=kernel_size, stride=self.stride, padding=self.padding, bias=False),
             )
             self.conv_h = nn.Sequential(
-                nn.Conv2d(self.h_channels, self.h_channels * 4, kernel_size=kernel_size, stride=self.stride, padding=self.padding, bias=False),
+                nn.Conv2d(self.h_channels, self.h_channels * 4, 
+                          kernel_size=kernel_size, stride=self.stride, padding=self.padding, bias=False),
             )
             self.conv_m = nn.Sequential(
-                nn.Conv2d(self.h_channels, self.h_channels * 3, kernel_size=kernel_size, stride=self.stride, padding=self.padding, bias=False),
+                nn.Conv2d(self.h_channels, self.h_channels * 3, 
+                          kernel_size=kernel_size, stride=self.stride, padding=self.padding, bias=False),
             )
             self.conv_o = nn.Sequential(
-                nn.Conv2d(self.h_channels * 2, self.h_channels, kernel_size=kernel_size, stride=self.stride, padding=self.padding, bias=False),
+                nn.Conv2d(self.h_channels * 2, self.h_channels, 
+                          kernel_size=kernel_size, stride=self.stride, padding=self.padding, bias=False),
             )
-        self.conv_last = nn.Conv2d(self.h_channels * 2, self.h_channels, kernel_size=1, stride=1, padding=0, bias=False)
+        self.conv_last = nn.Conv2d(self.h_channels * 2, self.h_channels, 
+                                   kernel_size=1, stride=1, padding=0, bias=False)
 
 
     def forward(self, x_t, h_t, c_t, m_t):
@@ -92,18 +100,16 @@ class Pred_RNN(nn.Module):
             output_dim: Number of channels in the output
             hidden_dim: Number of channels in the hidden outputs (should be a number or a list of num_layers - 1)
             kernel_size: Size of kernel in convolutions (Note: Will do same padding)
-            memory_kernel_size: Size of kernel in convolutions when the memory influences the output
-            dilation_rate: Size of holes in convolutions
             img_width: Width of the image in pixels
             img_height: Height of the image in pixels
             layer_norm_flag: Whether to perform layer normalization
-            baseline: What baseline function to use
-            num_layers: Number of LSTM layers stacked on each other
-            peephole: Whether to include peephole connections or not
+            num_layers: Number of PredRNN layers stacked on each other
+            baseline: Used for quicker convergence for non-sampling methods, not necessary in this model
+            mask_channel: Index of mask channel
         Input:
-            A tensor of shape (b, c, w, h, t)
+            A tensor of shape (b, c, w, h, t), step 1~t
         Output:
-            The residual from the baseline
+            A tensor of shape (b, c, w, h, t), step 2~t+1
         """
         super(Pred_RNN, self).__init__()
 
@@ -115,7 +121,6 @@ class Pred_RNN(nn.Module):
         self.mask_channel = mask_channel
               
         cell_list = []
-
 
         for i in range(num_layers):
             in_channel = self.input_dim if i == 0 else self.h_channels[i - 1]
@@ -142,7 +147,7 @@ class Pred_RNN(nn.Module):
             baseline computed on the input variables. Only needed for prediction_count > 1.
         Returns
         -------
-        pred_deltas
+        prediction
         """
         batch, _, width, height, T = input_tensor.size()
         input_flag = torch.from_numpy(input_flag[:batch,...]).to(self._get_device(), dtype=torch.float)
