@@ -6,7 +6,7 @@ soil moisture and runoff.
 We use [PyTorch](https://pytorch.org/) for the implementation.
 
 ## Data explanation
-Datasets in this study were grouped into three categories as (1) target feature, (2) mask and (3) auxiliary features. (1) Target feature is the feature to predict. So far it only includes the [seasonal ground cover](https://portal.tern.org.au/metadata/22022). It is the first band of the input image data and the only band in the output image; (2) Mask is the second band, which is also from the ground cover data to distinguish the valid ground cover and data gaps, it is the second band of the input image but not in the output image; (3) all the climate and water balance data including rainfall, temperature, soil moisture and runoff data are auxiliary datasets, which are included in the input image but not in the output image. Bands 3 to 6 are the auxiliary datasets.
+Datasets in this study were grouped into three categories as (1) target feature, (2) mask and (3) auxiliary features. (1) Target feature is the feature to predict. So far it only includes the [seasonal ground cover](https://portal.tern.org.au/metadata/22022). It is the first band of the input image data and the only band in the output image; (2) Mask is the second band, which is also from the ground cover data to distinguish the valid ground cover and data gaps, it is the second band of the input image but not in the output image; (3) all the climate and water balance data including rainfall and temperature from [SILO](https://www.longpaddock.qld.gov.au/silo/gridded-data/) as well as soil moisture and runoff from [AWO](https://awo.bom.gov.au/about/overview/dataAccess) are auxiliary datasets, which are included in the input image but not in the output image. Bands 3 to 6 are the auxiliary datasets.
 
 | Band | Data              | Category  | Data type |
 | ---- | ----------------- | --------- | --------- |
@@ -29,24 +29,65 @@ The input context sequence was directly fed into the memory cells (i.e. ConvLSTM
 
 Finally, the overlapping time steps (i.e. season 2~16) in output and input sequences were used to calculate the loss function. The Mean absolute error (MSE)  was used to quantify training loss while the ensemble of MSE, the Huber Loss and the Structural Similarity Index (SSIM) was used for the validation step. As MSE and Huber Loss indicates better performance with small values, SSIM is just the opposite, so 1-SSIM was used to calculate the ensemble loss. 
 
-![Alt text](Figures/modelstructure.png?raw=true "Model structure")
+![Alt text](Figures/image.png?raw=true "Model structure")
 
 ## Show Cases
-![Alt text](Figures/PredRNN_rs/images.jpg?raw=true "Model performance for a single data record" )
-*Context, target and predicted images for a sampled testing record. The first row is the input context sequence, the second row is the target sequence, the third row is the predicted target images and the last row is the MAE between target and prediction.*
+![Alt text](Figures/PredRNN_rs/all_images.jpg?raw=true "Model performance for a single data record" )
+*Context, target and predicted images for a sampled testing record. The first row is the input context sequence, the second row is the target sequence, the third row is the predicted target images and the fourth row is the MAE between target and prediction, and the last row is the comparison of histgrams.*
 
 ![Alt text](Figures/PredRNN_rs/timeseries.jpg?raw=true "Time series (all data records) of model performance (The next season prediction)")
-*Time series (all data records) of model performance (The next season prediction). The top panel shows the time series of observed and predicted ground cover. Grey bars shows the cloud cover and the black vertical line indicates when the new ground cover mapping method was introduced. The bottom panel shows the calculated MAE and SSIM for each time step.*
+*Time series (all data records) of model performance (The next season prediction). The top panel shows the time series of observed and predicted ground cover. Grey bars shows the cloud cover and the black vertical line indicates when the new ground cover mapping method was introduced. The next two panels show the calculated MAE and SSIM as well as their decay rate for each time step.*
 
 ## Get Started
-1. Setup environment
+(Only steps in ***bold_italic*** can be implemented with sample data only)
+### Setup environment
 ```
 conda create -n convlstm python=3.9
 pip install env.txt
 ```
-2. Parameter configeration. 
+### Data retrieve
+1. Update AWO (including soilmoisture and runoff) data
+(wd: work directory where retreived data will be saved)
+```
+python scripts/retrieve_AWO.py -wd {}
+```
+2. Update SILO (including rainfall and temperature) data
+(wd: work directory where retreived data will be saved)
+```
+python scripts/retrieve_SILO.py -wd {}
+```
+3. Preprocess Auxiliary data (including normalization and projection)
+```
+python scripts/preprocess_AUX.py -wd {} -SILO {} -AWO {}
+```
+The above processes were included in a batch job
+```
+qsub PBS_jobs/data_retrieve.sh
+```
+### Data preparation for model training
+1. Set training data, slice and preprocess data for each site
+(wd: work directory where training data will be saved in a folder named "Sites";
+Site: index for site;
+l: windlow length;
+iw: image width; 
+ih: image height; 
+tr: train split ratio;
+vtr: validation and test splitting ratio)
+```
+python scrips/set_train_data.py -wd {} --Site {} -l {} -iw {} -ih {} -tr {} -vtr {}
+```
+- More parameters to config can be found with
+```
+python scrips/set_train_data.py -h
+```
+2. Site iteration can be achieved by submitting batch jobs
+```
+python PBS_jobs/qsub_data_prep.py
+```
+### Model train
+1. ***Parameter configeration.***
 - An example of generating configeration files for PredRNN\
-(wd: work directory;
+(wd: work directory where all files during training will be saved;
 pd: path of data;
 mt: model type;
 ts: training sampling method; 
@@ -63,7 +104,7 @@ ct: number of context steps for training;
 fv: number of future steps for validation)
 
 ```
-python config/config.py -wd .. -pd ../Data/GC -mt PredRNN 
+python config/config.py -wd {} -pd ../Data/GC -mt PredRNN 
 -ts rs -iw 128 -ih 128 -nl 3 -hc 64 
 -mc 1 -oc 1 -ic 6 -bs 4 -e 1000     
 -ft 8 -ct 8 -fv 8
@@ -75,20 +116,30 @@ python config/config.py -wd .. -pd ../Data/GC -mt PredRNN
 python config/config.py -h
 ```
 
-3. Train model with sample data\
-(wd: work directory)
+2. ***Train model with sample data***
+(wd: work directory, same as the one used in config)
 ```
-python scripts/model_train.py -wd ..
+python scripts/model_train.py -wd {} 
 ```
-4. Use model for prediction\
-The trained ConvLSTM and PredRNN can be downloaded from [CloudStor](https://cloudstor.aarnet.edu.au/plus/s/UvG1xAWvU4HOXM0)
-(wd: work directory; md: model directory)
+
+3. Train model with entire dataset with batch jobs
 ```
-python scripts/model_pred.py -wd .. -md PATH_TO_TRAINED_MODEL
+python PBS_jobs/qsub_model_train.py
+```
+### Use model for prediction
+The trained ConvLSTM and PredRNN can be downloaded from [CloudStor](https://cloudstor.aarnet.edu.au/plus/s/0lKj2HwjD0BVcK3)
+(wd: work directory, same as the one used in config; md: model directory)
+1. ***Model prediction for sampled data in a single site***
+```
+python scripts/model_pred.py -wd {} -md {}
 ``` 
-5. Use model to predict large area in tiles and mosaic results\
+2. Use model to predict large area in tiles and mosaic results\
 (tw: tile width; th: tile height)
 ```
 python scripts/model_mosaic.py -wd predicted_maps -tw 1280 -th 1280
+```
+or use batch job (recommended)
+```
+qsub PBS_jobs grid_pred.sh
 ```
 
