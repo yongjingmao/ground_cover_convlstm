@@ -277,7 +277,7 @@ def mainRoutine():
     aux_vars = ['rainfall', 'temperature', 'soilmoisture', 'runoff']
     aux_filenames = {'rainfall':'rainfall',
              'temperature':'temperature',
-             'soilmoisture': 'soil_moisture',
+             'soilmoisture': 'soilmoisture',
              'runoff': 'runoff'}
     context_length = 16
     img_width = 128
