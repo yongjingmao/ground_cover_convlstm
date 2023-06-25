@@ -38,6 +38,10 @@ Finally, the overlapping time steps (i.e. season 2~16) in output and input seque
 ![Alt text](Figures/PredRNN_rs/timeseries.jpg?raw=true "Time series (all data records) of model performance (The next season prediction)")
 *Time series (all data records) of model performance (The next season prediction). The top panel shows the time series of observed and predicted ground cover. Grey bars shows the cloud cover and the black vertical line indicates when the new ground cover mapping method was introduced. The next two panels show the calculated MAE and SSIM as well as their decay rate for each time step.*
 
+![Alt text](predicted_maps/Pred.jpg?raw=true "GBRCA prediction" )
+
+![Alt text](predicted_maps/Timeseries.jpg?raw=true "GBRCA time series" )
+
 ## Get Started
 (Only steps in ***bold_italic*** can be implemented with sample data only)
 ### Setup environment
