@@ -39,8 +39,10 @@ Finally, the overlapping time steps (i.e. season 2~16) in output and input seque
 *Time series (all data records) of model performance (The next season prediction). The top panel shows the time series of observed and predicted ground cover. Grey bars shows the cloud cover and the black vertical line indicates when the new ground cover mapping method was introduced. The next two panels show the calculated MAE and SSIM as well as their decay rate for each time step.*
 
 ![Alt text](predicted_maps/Pred.jpg?raw=true "GBRCA prediction" )
+*The prediction of next-season ground cover for the entire GBRCA. The plot (a) is the observation for the last season in the context sequence; the plot (b) is the prediction corresponding to (a); (c) is the prediction for the next season; and (d) is the difference between (c) and (b) as (c)-(b)*
 
 ![Alt text](predicted_maps/Timeseries.jpg?raw=true "GBRCA time series" )
+*The time series of observation (the last 16 seasons) and prediction (the last 15 seasons + uncoming season). The first plot shows the spatial average of prediction (dash line) and observation (solid line). The bar chart in the first plot compares the increment of averaged ground cover. The second plot calculates the scoring metrics (MAE and SSIM) comparing observation and prediction for the last 15 seasons. The solid and dash liens are the spatial average of MAE and SSIM respectively. The error bar shows the spatial std for MAE*
 
 ## Get Started
 (Only steps in ***bold_italic*** can be implemented with sample data only)
