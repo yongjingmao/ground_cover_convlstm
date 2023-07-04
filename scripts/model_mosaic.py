@@ -37,7 +37,8 @@ def getCmdargs():
     p = argparse.ArgumentParser()
     p.add_argument("-wd", "--work_dir", type=str, default=None,
                    help="Work directory")
-    p.add_argument("-rd", "--ROI_dir", type=str, default="/scratch/rsc8/yongjingm/ConvLSTM_GBRCA/GBRCA_grazing.zip",
+    p.add_argument("-rd", "--ROI_dir", type=str, 
+                   default="/scratch/rsc8/yongjingm/Github/ground_cover_convlstm/Data/Shapefiles/GBRCA_grazing.zip",
                    help="ROI directory")
     p.add_argument("-gd", "--gc_dir", type=str, 
                    default="/scratch/rsc3/fractionalcover3_cache/ground_cover_seasonal/qld",
@@ -48,9 +49,12 @@ def getCmdargs():
     p.add_argument("-md", "--model_dir", type=str,
                    default="/scratch/rsc8/yongjingm/Github/ground_cover_convlstm/trained_models/PredRNN_rs/predrnn.ckpt",
                    help="Model directory")
-    p.add_argument("-tw", "--tile_width", type=int, default=128,
+    p.add_argument("--config_dir", type=str,
+                   default="/scratch/rsc8/yongjingm/Github/ground_cover_convlstm/config",
+                   help="Config directory")
+    p.add_argument("-tw", "--tile_width", type=int, default=1280,
                    help="Width of each tile")
-    p.add_argument("-th", "--tile_height", type=int, default=128,
+    p.add_argument("-th", "--tile_height", type=int, default=1280,
                    help="Height of each tile")    
     p.add_argument("-ce", "--clear_cache", action="store_true",
                    help="Whether clear cache")
@@ -117,7 +121,6 @@ def get_gc(grid_id, grids_gdf, pred_df, gc_dir, img_width=128, img_height=128):
             new_transform = rasterio.Affine(transform.a*out_image.shape[1]/img_width, transform.b, transform.c, 
                                 transform.d, transform.e*out_image.shape[2]/img_height, transform.f)
             out_image = out_image[0].reshape(1, out_image.shape[1], out_image.shape[2])
-            #out_mask = np.where(out_image==src.nodata, 1, 0).reshape(1, out_image.shape[1], out_image.shape[2])
             out_image = np.where(out_image==255, np.nan, out_image)
             out_image = st.resize(out_image, (1, img_width, img_height))
             out_mask = np.where(np.isnan(out_image), 1, 0)
@@ -268,6 +271,7 @@ def mainRoutine():
     gc_dir = cmdargs.gc_dir
     aux_dir = cmdargs.aux_dir
     model_dir = cmdargs.model_dir
+    config_dir = cmdargs.config_dir
     tile_height = cmdargs.tile_height
     tile_width = cmdargs.tile_width
     clear_cache = cmdargs.clear_cache
@@ -279,9 +283,14 @@ def mainRoutine():
              'temperature':'temperature',
              'soilmoisture': 'soilmoisture',
              'runoff': 'runoff'}
-    context_length = 16
-    img_width = 128
-    img_height = 128
+    
+    cfg_training = json.load(open(os.path.join(config_dir, "Training.json"), 'r'))
+    model_type = cfg_training['project_name'].split('_')[0]
+    cfg_model= json.load(open(os.paht.join(config_dir, model_type + ".json"), 'r'))
+    
+    context_length = cfg_training['context_training'] + cfg_training['future_training']
+    img_width = cfg_model['img_width']
+    img_height = cfg_model['img_height']
     
     cache_path = work_dir+'/image_cache'
     

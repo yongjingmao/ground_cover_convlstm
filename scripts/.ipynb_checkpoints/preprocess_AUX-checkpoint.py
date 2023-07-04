@@ -25,8 +25,9 @@ def getCmdargs():
                help="SILO directory")
     p.add_argument("-AWO", "--AWO_dir", type=str, default="/scratch/rsc8/yongjingm/WaterOutlook",
                help="AWO directory")
-    p.add_argument("-ROI", "--ROI_dir", type=str, default="/scratch/rsc8/yongjingm/ConvLSTM_GBRCA/GBRCA_grazing.zip",
-           help="Work directory")
+    p.add_argument("-ROI", "--ROI_dir", type=str,
+                   default="/scratch/rsc8/yongjingm/Github/ground_cover_convlstm/Data/Shapefiles/GBRCA_grazing.zip",
+                   help="ROI directory")
     cmdargs = p.parse_args()
     return cmdargs
 
@@ -104,6 +105,9 @@ def mainRoutine():
     AWO_dir = cmdargs.AWO_dir
     ROI_dir = cmdargs.ROI_dir
     
+    if not os.path.exists(work_dir):
+        os.mkdir(work_dir)
+    
     aux_paths = {'rainfall': SILO_dir,
                  'temperature': SILO_dir,
                  'soilmoisture': AWO_dir,
@@ -133,7 +137,7 @@ def mainRoutine():
     """
     Normalize data
     """
-    for aux_var in ['soilmoisture', 'runoff']:
+    for aux_var in ['rainfall', 'temperature', 'soilmoisture', 'runoff']:
         filename = aux_files[aux_var]
         aux_path = aux_paths[aux_var]
         input_df = pd.read_csv(os.path.join(aux_path, '{}.csv'.format(filename)))

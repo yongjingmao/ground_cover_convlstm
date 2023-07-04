@@ -24,8 +24,9 @@ def getCmdargs():
                    help="Auxiliary data directory")
     p.add_argument("-gd", "--gc_dir", type=str, default="/scratch/rsc3/fractionalcover3_cache/ground_cover_seasonal/qld",
                    help="Work directory")
-    p.add_argument("-AOI", "--AOI_dir", type=str, default="/scratch/rsc8/yongjingm/ConvLSTM_GBRCA/AOIs.shp.zip",
-           help="Work directory")
+    p.add_argument("-AOI", "--AOI_dir", type=str, 
+                   default="/scratch/rsc8/yongjingm/Github/ground_cover_convlstm/Data/Shapefiles/AOIs.shp.zip",
+                   help="Work directory")
     p.add_argument("--Site", type=int, 
                    help="Index of Site")
     p.add_argument("--window_length", '-l', type=int, 

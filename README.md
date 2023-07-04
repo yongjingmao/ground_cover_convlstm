@@ -160,6 +160,6 @@ python scripts/model_mosaic.py -wd predicted_maps -tw 1280 -th 1280
 ```
 or use batch job (recommended)
 ```
-qsub PBS_jobs grid_pred.sh
+qsub PBS_jobs/grid_pred.sh
 ```
 

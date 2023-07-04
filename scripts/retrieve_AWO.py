@@ -82,6 +82,8 @@ def mainRoutine():
     
     # Work directory where data will be saved
     work_dir = cmdargs.work_dir
+    if not os.path.exists(work_dir):
+        os.mkdir(work_dir)
     
     # Download link for runoff data
     runoff_link = ("https://dapds00.nci.org.au/"
