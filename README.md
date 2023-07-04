@@ -6,7 +6,8 @@ soil moisture and runoff.
 We use [PyTorch](https://pytorch.org/) for the implementation.
 
 ## Data explanation
-Datasets in this study were grouped into three categories as (1) target feature, (2) mask and (3) auxiliary features. (1) Target feature is the feature to predict. So far it only includes the [seasonal ground cover](https://portal.tern.org.au/metadata/22022). It is the first band of the input image data and the only band in the output image; (2) Mask is the second band, which is also from the ground cover data to distinguish the valid ground cover and data gaps, it is the second band of the input image but not in the output image; (3) all the climate and water balance data including rainfall and temperature from [SILO](https://www.longpaddock.qld.gov.au/silo/gridded-data/) as well as soil moisture and runoff from [AWO](https://awo.bom.gov.au/about/overview/dataAccess) are auxiliary datasets, which are included in the input image but not in the output image. Bands 3 to 6 are the auxiliary datasets.
+### Image data
+Image datasets in this study were grouped into three categories as (1) target feature, (2) mask and (3) auxiliary features. (1) Target feature is the feature to predict. So far it only includes the [seasonal ground cover](https://portal.tern.org.au/metadata/22022). It is the first band of the input image data and the only band in the output image; (2) Mask is the second band, which is also from the ground cover data to distinguish the valid ground cover and data gaps, it is the second band of the input image but not in the output image; (3) all the climate and water balance data including rainfall and temperature from [SILO](https://www.longpaddock.qld.gov.au/silo/gridded-data/) as well as soil moisture and runoff from [AWO](https://awo.bom.gov.au/about/overview/dataAccess) are auxiliary datasets, which are included in the input image but not in the output image. Bands 3 to 6 are the auxiliary datasets.
 
 | Band | Data              | Category  | Data type |
 | ---- | ----------------- | --------- | --------- |
@@ -21,6 +22,15 @@ For each site, all the input data were resampled to 128 × 128 pixels, and were 
 The resultant image was sliced along the temporal (season) domain with a window length of 16 seasons (4 years) and the step of 1 season. As a result, each slice has the shape of 128 × 128 × 6 × 16 and 123 slices can be obtained for training, validation and testing. In this study, the first 50% of slices were used for training, the next 25% for validation and the final 25% for testing.
 
 Raw sample data were presented in the "Data/GC" folder with the "Train", "Test", "Val" subfolders containing the sliced training, testing and validation data. Each data record was saved in .npz format, each contains a "image" file (Ground cover and mask) and a "Auxiliary file". These raw data will then be procssed by the "data_preparation.py" in "Data" folder.
+
+### Geometry data
+Geometry data in the "Data/Shapefiles" folder are used to clip raster data. The GBRCA_grazing.zip is the grazing area in the Great Barrier Reef Catchments extracted from [Land use mapping](https://www.qld.gov.au/environment/land/management/mapping/statewide-monitoring/qlump/qlump-datasets). This dataset is used to constrain the area of analysis. GBRCA_samples.zip contains the 100 sampled points within the grazing area. AOI.shp.zip is the polygons created based on GBRCA_samples. At each sampled location, a polygon with the size of 128 (3840 m) x 128 (3840 m) pixels was constructed as Site AOI. AOI.shp.zip contains 50 training sites, 25 validation sites and 25 testing Site AOIs. They are used to clip images for model training, validation and testing.
+
+|NO    | Data              | Description                            | Data type |
+| ---- | ----------------- | ---------------------------------------| --------- |
+| 1    | GBRCA_grazing.zip | Grazing area in GBRCA                  |Polygons   |
+| 2    | GBRCA_samples.zip |Sampled points within GBRCA             |Points     |
+| 3    | AOIs.shp.zip      |Polygon (Site AOI) data based on samples|Polygons   |
 
 ## Model structure
 Figure below shows the structure of the model in this study. For each input sequence with the shape of 128 × 128 × 6 × 16, along the channel dimension, it was separated to ground cover feature, mask feature and auxiliary feature. The output sequence only contains the ground cover layer. Along the temporal dimension, it was divided into context sequence (first 8 seasons) and target sequence (last 8 seasons). 
@@ -52,19 +62,23 @@ conda create -n convlstm python=3.9
 pip install env.txt
 ```
 ### Data retrieve
-1. Update AWO (including soilmoisture and runoff) data
+1. Update AWO (including soilmoisture and runoff) data\
 (wd: work directory where retreived data will be saved)
 ```
 python scripts/retrieve_AWO.py -wd {}
 ```
-2. Update SILO (including rainfall and temperature) data
+2. Update SILO (including rainfall and temperature) data\
 (wd: work directory where retreived data will be saved)
 ```
 python scripts/retrieve_SILO.py -wd {}
 ```
-3. Preprocess Auxiliary data (including normalization and projection)
+3. Preprocess Auxiliary data (including normalization and projection)\
+(wd: work directory where processed data will be saved;
+SILO: SILO data directory;
+AWO: AWO data directory;
+ROI: Region of interest (GBRCA_grazing.shp) directory)
 ```
-python scripts/preprocess_AUX.py -wd {} -SILO {} -AWO {}
+python scripts/preprocess_AUX.py -wd {} -SILO {} -AWO {} -ROI {}
 ```
 The above processes were included in a batch job
 ```
