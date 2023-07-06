@@ -181,7 +181,7 @@ def mainRoutine():
         
         averages = np.nanmean(np.where(resampled_image==out_meta['nodata'], np.nan, resampled_image), (1, 2))
         input_df.iloc[:, 1] = averages
-        input_df.to_csv(os.path.join(work_dir, '{}.csv'.format(filename)))
+        input_df.to_csv(os.path.join(work_dir, '{}.csv'.format(filename)), index=False)
                 
 if __name__ == "__main__":
     mainRoutine()

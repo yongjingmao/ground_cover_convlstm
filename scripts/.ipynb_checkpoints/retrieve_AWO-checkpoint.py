@@ -54,7 +54,7 @@ def netCDF_to_tif(netCDF_dir, varname, meta_dir, tif_dir):
     # Save metadata
     Dates = pd.date_range(start=s_date, periods=var_data.shape[0], freq='MS')
     Result = np.nanmean(np.where(var_data==-999, np.nan, var_data), (1,2))
-    df = pd.DataFrame({'Date':Dates, 'Soil Moisture': Result})
+    df = pd.DataFrame({'Date':Dates, varname: Result})
     df.to_csv(meta_dir, index=False)
     
     # Save tif data

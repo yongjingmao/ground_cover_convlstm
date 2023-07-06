@@ -84,7 +84,7 @@ def merge_tif(in_dir, varname, out_dir):
     print('Save metadata')
     out_df = pd.DataFrame(
         {'Date':dates,
-        'Temperature':np.nanmean(np.where(out_images==profile['nodata'], np.nan, out_images), (1,2))}
+         varname:np.nanmean(np.where(out_images==profile['nodata'], np.nan, out_images), (1,2))}
     )
     out_df.to_csv(os.path.join(out_dir, '{}.csv'.format(varname)), index=False)
         

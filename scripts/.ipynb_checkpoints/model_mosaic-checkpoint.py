@@ -4,6 +4,7 @@ import glob
 import shutil
 import argparse
 
+import json
 import math
 import numpy as np
 import scipy
@@ -286,7 +287,7 @@ def mainRoutine():
     
     cfg_training = json.load(open(os.path.join(config_dir, "Training.json"), 'r'))
     model_type = cfg_training['project_name'].split('_')[0]
-    cfg_model= json.load(open(os.paht.join(config_dir, model_type + ".json"), 'r'))
+    cfg_model= json.load(open(os.path.join(config_dir, model_type + ".json"), 'r'))
     
     context_length = cfg_training['context_training'] + cfg_training['future_training']
     img_width = cfg_model['img_width']
