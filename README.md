@@ -162,4 +162,4 @@ or use batch job (recommended)
 ```
 qsub PBS_jobs/grid_pred.sh
 ```
-
+The implementation of the ConvLSTM is mostly borrowed from the [satellite_image_forecasting](https://github.com/rudolfwilliam/satellite_image_forecasting/tree/master). The PredRNN model is mostly based on the [predrnn-pytorch](https://github.com/thuml/predrnn-pytorch). Should you be making use of this work, please make sure to adhere to the licensing terms of the original authors.
